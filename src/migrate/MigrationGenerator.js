@@ -4,6 +4,7 @@ import mkdirp from 'mkdirp';
 import Promise from 'bluebird';
 import { template } from 'lodash';
 import { getMergedConfig } from './Migrator';
+import glob from 'glob';
 
 export default class MigrationGenerator {
   constructor(migrationConfig) {
@@ -70,9 +71,44 @@ export default class MigrationGenerator {
     const directories = Array.isArray(this.config.directory)
       ? this.config.directory
       : [this.config.directory];
-    return directories.map((directory) => {
-      return path.resolve(process.cwd(), directory);
-    });
+
+    const cwd = process.cwd();
+    if (this.config.globs) {
+      return directories.map((directory) => {
+        if (directory[directory.length - 1] != '/') {
+          directory + '/';
+        }
+        const result = glob(
+          directory,
+          {
+            absolute: true,
+            cwd,
+            dot: true,
+          },
+          (err, matches) => {
+            if (err) throw new Error('Error glob matching: ', err);
+            console.log('matches', matches);
+          }
+        );
+        // PR for glob paths
+        // linear algorithm, math slow down applications
+        const isGlob = directory.includes('**');
+        if (isGlob) {
+          const expandedModulesMigrationPath = directory.split('**');
+          const modulesDirectory = expandedModulesMigrationPath[0];
+          const migrationFolderName = expandedModulesMigrationPath[1];
+          const moduleAbsDir = path.resolve(process.cwd(), modulesDirectory);
+          //get folders
+          const folders = fs.readdirSync(moduleAbsDir);
+          // console.log('folders', folders);
+        }
+        return path.resolve(cwd, directory);
+      });
+    } else {
+      return directories.map((directory) => {
+        return path.resolve(process.cwd(), directory);
+      });
+    }
   }
 }
 
